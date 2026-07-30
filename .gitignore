@@ -1,0 +1,12 @@
+node_modules
+.env
+.env.development
+.env.test
+.env.production
+uploads/*
+!uploads/.gitkeep
+logs/
+coverage/
+dist/
+*.log
+.DS_Store

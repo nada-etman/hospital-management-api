@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  PATIENT
+  RECEPTIONIST
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum BillingStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+model User {
+  id                Int             @id @default(autoincrement())
+  name              String
+  email             String          @unique
+  password          String
+  role              Role
+  isVerified        Boolean         @default(false)
+  verifyToken       String?
+  verifyTokenExpiry DateTime?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  isDeleted         Boolean         @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  patient           Patient?
+  doctor            Doctor?
+  refreshTokens     RefreshToken[]
+  auditLogs         AuditLog[]
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Department {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  doctors     Doctor[]
+  createdAt   DateTime @default(now())
+}
+
+model Doctor {
+  id             Int           @id @default(autoincrement())
+  userId         Int           @unique
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization String
+  licenseNo      String        @unique
+  departmentId   Int
+  department     Department    @relation(fields: [departmentId], references: [id])
+  isDeleted      Boolean       @default(false)
+  deletedAt      DateTime?
+  appointments   Appointment[]
+  records        MedicalRecord[]
+  createdAt      DateTime      @default(now())
+
+  @@index([departmentId])
+  @@index([specialization])
+}
+
+model Patient {
+  id          Int             @id @default(autoincrement())
+  userId      Int             @unique
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dob         DateTime
+  gender      Gender
+  phone       String
+  address     String
+  bloodType   String?
+  isDeleted   Boolean         @default(false)
+  deletedAt   DateTime?
+  appointments Appointment[]
+  records     MedicalRecord[]
+  bills       Billing[]
+  createdAt   DateTime        @default(now())
+}
+
+model Appointment {
+  id        Int               @id @default(autoincrement())
+  patientId Int
+  patient   Patient           @relation(fields: [patientId], references: [id])
+  doctorId  Int
+  doctor    Doctor            @relation(fields: [doctorId], references: [id])
+  date      DateTime
+  reason    String
+  status    AppointmentStatus @default(PENDING)
+  billing   Billing?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([date])
+  @@index([doctorId, date])
+  @@index([status])
+}
+
+model MedicalRecord {
+  id           Int      @id @default(autoincrement())
+  patientId    Int
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  doctorId     Int
+  doctor       Doctor   @relation(fields: [doctorId], references: [id])
+  diagnosis    String
+  prescription String?
+  notes        String?
+  date         DateTime @default(now())
+
+  @@index([patientId])
+  @@index([doctorId])
+}
+
+model Billing {
+  id            Int           @id @default(autoincrement())
+  patientId     Int
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  appointmentId Int?          @unique
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
+  amount        Float
+  status        BillingStatus @default(UNPAID)
+  createdAt     DateTime      @default(now())
+
+  @@index([status])
+  @@index([patientId])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  Int?
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
